@@ -1,0 +1,24 @@
+name: Emlak Bot Otomasyonu
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout kod
+        uses: actions/checkout@v4
+
+      - name: Python Kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Kütüphaneleri Yükle
+        run: pip install requests
+
+      - name: Botu Çalıştır
+        run: python bot.py

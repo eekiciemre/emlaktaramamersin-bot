@@ -5,8 +5,7 @@ import time
 TOKEN = "9222419466:AAF65zfqe89xnHDSMcxpGEV2nabmhPbz0e4"
 CHAT_ID = "8242316628"
 
-# Hedef Kriterler ve Fiyat Aralığı
-HEDEF_MAHALLELER = ["viranşehir", "menderes", "atatürk", "75. yıl"]
+# Tüm Mezitli Hedef Kriterler ve Fiyat Aralığı
 HEDEF_ODALAR = ["2+1", "3+1"]
 MINIMUM_FIYAT = 3000000
 MAKSIMUM_FIYAT = 5250000
@@ -30,43 +29,10 @@ def telegram_mesaj_gonder(mesaj):
     except Exception as e:
         print(f"Telegram gönderim hatası: {e}")
 
-def komutlari_kontrol_et():
-    url = f"https://api.telegram.org/bot{TOKEN}/getUpdates"
-    try:
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            veri = response.json()
-            if "result" in veri and len(veri["result"]) > 0:
-                son_mesaj = veri["result"][-1]
-                if "message" in son_mesaj and "text" in son_mesaj["message"]:
-                    text = son_mesaj["message"]["text"].strip()
-                    
-                    if text == "/tara":
-                        telegram_mesaj_gonder("🔍 Manuel tarama başlatıldı, portallar kontrol ediliyor...")
-                        ilanlari_tara()
-                    elif text == "/durum":
-                        durum_mesaj = (
-                            f"🤖 *Bot Durumu: AKTİF*\n\n"
-                            f"📍 *Bölge:* Mersin / Mezitli (Viranşehir, Menderes, Atatürk, 75. Yıl)\n"
-                            f"🏠 *Oda Tipleri:* 2+1, 3+1\n"
-                            f"💰 *Fiyat Aralığı:* {MINIMUM_FIYAT:,} TL - {MAKSIMUM_FIYAT:,} TL\n"
-                            f"🌐 *Taranan Siteler:* Sahibinden, Hepsiemlak, Emlakjet, Emlaksitem"
-                        )
-                        telegram_mesaj_gonder(durum_mesaj)
-                    elif text == "/yardim":
-                        yardim_mesaj = (
-                            "📋 *Komut Listesi:*\n\n"
-                            "/tara - Hemen şimdi siteleri tarar\n"
-                            "/durum - Aktif filtreleri ve sistem durumunu gösterir\n"
-                            "/yardim - Bu yardım menüsünü açar"
-                        )
-                        telegram_mesaj_gonder(yardim_mesaj)
-    except Exception as e:
-        print(f"Komut kontrol hatası: {e}")
-
 def ilanlari_tara():
-    print(f"Mersin Mezitli Taraması Başlatıldı (Fiyat Aralığı: {MINIMUM_FIYAT:,} TL - {MAKSIMUM_FIYAT:,} TL)...")
+    print(f"Mersin Mezitli (Tüm İlçe) Taraması Başlatıldı (Fiyat: {MINIMUM_FIYAT:,} TL - {MAKSIMUM_FIYAT:,} TL)...")
     
+    # Tüm Mezitli'yi kapsayan ana ilçe arama linkleri
     platformlar = [
         ("Sahibinden", "https://www.sahibinden.com/emlak-konut-satilik/mersin-mezitli"),
         ("Hepsiemlak", "https://www.hepsiemlak.com/mersin-mezitli-satilik"),
@@ -74,7 +40,6 @@ def ilanlari_tara():
         ("Emlaksitem", "https://www.emlaksitem.com/ilanlar/mersin-mezitli-satilik-daire")
     ]
 
-    bulunan_ilan_sayisi = 0
     for kaynak_adi, url in platformlar:
         try:
             print(f"{kaynak_adi} taranıyor -> {url}")
@@ -90,8 +55,7 @@ def ilanlari_tara():
         
         time.sleep(3)
 
-    telegram_mesaj_gonder(f"✅ Tarama turu tamamlandı. Kriterlere uyan yeni ilan kontrol edildi.")
+    telegram_mesaj_gonder(f"✅ Mezitli (Tüm İlçe) tarama turu tamamlandı. Kriterlere uyan yeni ilanlar kontrol ediliyor.")
 
 if __name__ == "__main__":
-    komutlari_kontrol_et()
     ilanlari_tara()

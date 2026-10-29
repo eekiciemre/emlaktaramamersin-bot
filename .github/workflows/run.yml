@@ -2,7 +2,7 @@ name: Emlak Bot Otomasyonu
 
 on:
   schedule:
-    - cron: '*/1 * * * *' # Her 5 dakikada bir otomatik çalışır
+    - cron: '*/1 * * * *' # Her 1 dakikada bir otomatik çalışır
   workflow_dispatch:
 
 jobs:

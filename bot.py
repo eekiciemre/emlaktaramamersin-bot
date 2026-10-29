@@ -1,13 +1,22 @@
 import requests
 from bs4 import BeautifulSoup
+import time
 
 TOKEN = "9222419466:AAF65zfqe89xnHDSMcxpGEV2nabmhPbz0e4"
 CHAT_ID = "8242316628"
 
-# Hedef Kriterler
+# Hedef Kriterler ve Güncellenen Fiyat Aralığı
 HEDEF_MAHALLELER = ["viranşehir", "menderes", "atatürk", "75. yıl"]
 HEDEF_ODALAR = ["2+1", "3+1"]
-MAKSIMUM_FIYAT = 5100000
+MINIMUM_FIYAT = 3000000
+MAKSIMUM_FIYAT = 5250000
+
+# Sitelerin bot korumalarını aşmak için tarayıcı kimliği
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept-Language": "tr-TR,tr;q=0.9",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+}
 
 def telegram_bildirim_gonder(baslik, fiyat, konum, oda, kaynak, link):
     mesaj = (
@@ -27,31 +36,20 @@ def telegram_bildirim_gonder(baslik, fiyat, konum, oda, kaynak, link):
         "parse_mode": "Markdown",
         "disable_web_page_preview": True
     }
-    response = requests.post(url, data=payload)
-    print("Telegram Yanıt Kodu:", response.status_code)
+    try:
+        response = requests.post(url, data=payload, timeout=10)
+        print(f"[{kaynak}] Telegram Yanıt Kodu:", response.status_code)
+    except Exception as e:
+        print(f"Telegram gönderim hatası: {e}")
 
 def ilanlari_tara():
-    print("Mersin Mezitli taraması başlatıldı...")
+    print(f"Mersin Mezitli Taraması Başlatıldı (Fiyat Aralığı: {MINIMUM_FIYAT:,} TL - {MAKSIMUM_FIYAT:,} TL)...")
     
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept-Language": "tr-TR,tr;q=0.9"
-    }
+    platformlar = [
+        ("Sahibinden", "https://www.sahibinden.com/emlak-konut-satilik/mersin-mezitli"),
+        ("Hepsiemlak", "https://www.hepsiemlak.com/mersin-mezitli-satilik"),
+        ("Emlakjet", "https://www.emlakjet.com/satilik-konut/mersin-mezitli/"),
+        ("Emlaksitem", "https://www.emlaksitem.com/ilanlar/mersin-mezitli-satilik-daire")
+    ]
 
-    # Test amaçlı tıklanabilir örnek ilan (Linke bastığınızda doğrudan test sayfasına gidecek)
-    bulunan_yeni_ilan_varmi = True  # Şimdilik test için True yaptık
-    
-    if bulunan_yeni_ilan_varmi:
-        telegram_bildirim_gonder(
-            baslik="Mezitli Viranşehir Sahibinden Temiz 3+1 (TEST İLANI)",
-            fiyat=4250000,
-            konum="Mersin / Mezitli / Viranşehir",
-            oda="3+1",
-            kaynak="Sahibinden (Doğrudan Mülk Sahibi)",
-            link="https://www.sahibinden.com" # Buraya tıklayınca site açılacak
-        )
-    else:
-        print("Kriterlere uygun yeni ilan aranıyor...")
-
-if __name__ == "__main__":
-    ilanlari_tara()
+    for

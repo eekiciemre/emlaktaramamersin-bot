@@ -5,7 +5,7 @@ import time
 TOKEN = "9222419466:AAF65zfqe89xnHDSMcxpGEV2nabmhPbz0e4"
 CHAT_ID = "8242316628"
 
-# Hedef Kriterler ve Güncellenen Fiyat Aralığı
+# Hedef Kriterler ve Fiyat Aralığı
 HEDEF_MAHALLELER = ["viranşehir", "menderes", "atatürk", "75. yıl"]
 HEDEF_ODALAR = ["2+1", "3+1"]
 MINIMUM_FIYAT = 3000000
@@ -52,4 +52,23 @@ def ilanlari_tara():
         ("Emlaksitem", "https://www.emlaksitem.com/ilanlar/mersin-mezitli-satilik-daire")
     ]
 
-    for
+    for kaynak_adi, url in platformlar:
+        try:
+            print(f"{kaynak_adi} taranıyor -> {url}")
+            response = requests.get(url, headers=HEADERS, timeout=12)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                print(f"✅ {kaynak_adi} başarıyla tarandı. (Durum: 200)")
+            else:
+                print(f"⚠️ {kaynak_adi} erişim kodu döndürdü: {response.status_code}")
+                
+        except Exception as e:
+            print(f"❌ {kaynak_adi} taranırken bağlantı hatası: {e}")
+        
+        time.sleep(3)
+
+    print("Tüm platform tarama turu tamamlandı. Sonraki tur 5 dakika sonra.")
+
+if __name__ == "__main__":
+    ilanlari_tara()

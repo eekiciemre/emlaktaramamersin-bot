@@ -31,33 +31,27 @@ def telegram_bildirim_gonder(baslik, fiyat, konum, oda, kaynak, link):
     print("Telegram Yanıt Kodu:", response.status_code)
 
 def ilanlari_tara():
-    print("Mersin Mezitli (Viranşehir, Menderes, Atatürk, 75. Yıl) taraması başlatıldı...")
+    print("Mersin Mezitli taraması başlatıldı...")
     
-    # Not: Sahibinden / Hepsiemlak bulut sunucusu IP'lerini (GitHub Actions) engellememesi için 
-    # tarayıcı kimliği (Headers) taklit edilmektedir.
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept-Language": "tr-TR,tr;q=0.9"
     }
 
-    # Örnek simülasyon ve gerçek entegrasyon yapısı:
-    # Kriterlerinize uyan ve doğrudan mülk sahibinden olan ilanlar algılandığında 
-    # otomatik olarak benzersiz linkiyle birlikte Telegram'a düşecektir.
-    
-    bulunan_yeni_ilan_varmi = False  # Gerçek ilan eşleştiğinde True döner
+    # Test amaçlı tıklanabilir örnek ilan (Linke bastığınızda doğrudan test sayfasına gidecek)
+    bulunan_yeni_ilan_varmi = True  # Şimdilik test için True yaptık
     
     if bulunan_yeni_ilan_varmi:
-        # Örnek veri entegrasyonu
         telegram_bildirim_gonder(
-            baslik="Mersin Mezitli Viranşehir Sahibinden Acil 3+1",
-            fiyat=4500000,
+            baslik="Mezitli Viranşehir Sahibinden Temiz 3+1 (TEST İLANI)",
+            fiyat=4250000,
             konum="Mersin / Mezitli / Viranşehir",
             oda="3+1",
             kaynak="Sahibinden (Doğrudan Mülk Sahibi)",
-            link="https://www.sahibinden.com" # Buraya ilanın kendi özel benzersiz linki gelecek
+            link="https://www.sahibinden.com" # Buraya tıklayınca site açılacak
         )
     else:
-        print("Tarama turu tamamlandı. Kriterlere uygun yeni mülk sahibi ilanı aranıyor...")
+        print("Kriterlere uygun yeni ilan aranıyor...")
 
 if __name__ == "__main__":
     ilanlari_tara()

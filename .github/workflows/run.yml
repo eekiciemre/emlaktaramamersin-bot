@@ -2,23 +2,20 @@ name: Emlak Bot Otomasyonu
 
 on:
   schedule:
-    - cron: '*/1 * * * *' # Her 1 dakikada bir otomatik çalışır
+    - cron: '*/5 * * * *' # 5 dakikada bir otomatik çalışır
   workflow_dispatch:
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout kod
+      - name: Checkout Kod
         uses: actions/checkout@v4
-
       - name: Python Kur
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
       - name: Kütüphaneleri Yükle
         run: pip install requests beautifulsoup4
-
       - name: Botu Çalıştır
         run: python bot.py

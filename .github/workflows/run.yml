@@ -1,21 +1,32 @@
-name: Emlak Bot Otomasyonu
 
-on:
-  schedule:
-    - cron: '*/5 * * * *' # 5 dakikada bir otomatik çalışır
-  workflow_dispatch:
+import os
+import requests
 
-jobs:
-  run-bot:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Kod
-        uses: actions/checkout@v4
-      - name: Python Kur
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - name: Kütüphaneleri Yükle
-        run: pip install requests beautifulsoup4
-      - name: Botu Çalıştır
-        run: python bot.py
+TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+
+def main():
+    response = requests.post(
+        f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+        json={
+            "chat_id": CHAT_ID,
+            "text": (
+                "✅ Mezitli ilan takip sistemi test edildi.\n\n"
+                "Hedef: 2+1 ve 3+1 satılık daireler\n"
+                "Fiyat: 3.000.000 - 5.250.000 TL\n"
+                "Kaynak bağlantıları bir sonraki aşamada kurulacak."
+            ),
+        },
+        timeout=20,
+    )
+
+    response.raise_for_status()
+    result = response.json()
+
+    if not result.get("ok"):
+        raise RuntimeError(result.get("description", "Telegram hatası"))
+
+    print("Telegram test mesajı başarıyla gönderildi.")
+
+if __name__ == "__main__":
+    main()

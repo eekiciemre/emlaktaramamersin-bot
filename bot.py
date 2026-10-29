@@ -18,9 +18,9 @@ HEADERS = {
 def telegram_mesaj_gonder(baslik, fiyat, kaynak, link):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     mesaj = (
-        f"🚨 **YENİ MÜLK SAHİBİ İLANI ({kaynak})!** 🚨\n\n"
+        f"🚨 **YENİ İLAN YAKALANDI ({kaynak})!** 🚨\n\n"
         f"📌 **Başlık:** {baslik}\n"
-        f"💰 **Fiyat:** {fiyat}\n"
+        f"💰 **Fiyat:** {fiyat:,} TL\n"
         f"📍 **Konum:** Mersin / Mezitli\n\n"
         f"🔗 [İlana Git ve İncele]({link})"
     )
@@ -36,32 +36,46 @@ def telegram_mesaj_gonder(baslik, fiyat, kaynak, link):
         print(f"Telegram gönderim hatası: {e}")
 
 def ilanlari_tara():
-    print("Mezitli genel taraması başlatıldı (Sahibinden, Hepsiemlak, Emlakjet)...")
+    print("Mezitli ilanları taranıyor...")
     
-    platformlar = [
-        ("Sahibinden", "https://www.sahibinden.com/emlak-konut-satilik/mersin-mezitli"),
-        ("Hepsiemlak", "https://www.hepsiemlak.com/mersin-mezitli-satilik"),
-        ("Emlakjet", "https://www.emlakjet.com/satilik-konut/mersin-mezitli/")
-    ]
-
-    for kaynak_adi, url in platformlar:
-        try:
-            print(f"{kaynak_adi} taranıyor -> {url}")
-            response = requests.get(url, headers=HEADERS, timeout=15)
-            
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                print(f"✅ {kaynak_adi} başarıyla tarandı.")
-                
-                # İleride her platformun kendi ilan kartı yapısına göre eşleşenler 
-                # doğrudan yukarıdaki telegram_mesaj_gonder fonksiyonu ile atılacak.
-            else:
-                print(f"⚠️ {kaynak_adi} erişim kodu: {response.status_code}")
-                
-        except Exception as e:
-            print(f"❌ {kaynak_adi} hata: {e}")
+    url = "https://www.sahibinden.com/emlak-konut-satilik/mersin-mezitli"
+    
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=15)
+        print(f"Bağlantı Durum Kodu: {response.status_code}")
         
-        time.sleep(3)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Sahibinden arama sonuçlarındaki ilan satırları
+            ilan_satirlari = soup.find_all('tr', {'class': 'searchResultsItem'})
+            print(f"Sayfada tespit edilen ilan satırı: {len(ilan_satirlari)}")
+            
+            for ilan in ilan_satirlari:
+                try:
+                    baslik_tag = ilan.find('a', {'class': 'classifiedTitle'})
+                    fiyat_tag = ilan.find('td', {'class': 'searchResultsPriceValue'})
+                    
+                    if baslik_tag and fiyat_tag:
+                        baslik = baslik_tag.text.strip()
+                        link = "https://www.sahibinden.com" + baslik_tag['href']
+                        
+                        # Fiyatı sayıya çevirme
+                        fiyat_metin = fiyat_tag.text.strip().replace(" TL", "").replace(".", "").replace(",", "")
+                        fiyat = int(fiyat_metin)
+                        
+                        # Bütçe aralığı kontrolü (3M - 5.25M) ve 2+1 / 3+1 kontrolü
+                        if MIN_FIYAT <= fiyat <= MAX_FIYAT:
+                            if "2+1" in baslik or "3+1" in baslik:
+                                print(f"Eşleşen ilan bulundu: {baslik} - {fiyat} TL")
+                                telegram_mesaj_gonder(baslik, fiyat, "Sahibinden", link)
+                except Exception as ex:
+                    print(f"İlan çözümlenirken hata: {ex}")
+        else:
+            print("Siteye erişimde bot korumasına takıldı.")
+            
+    except Exception as e:
+        print(f"Hata oluştu: {e}")
 
 if __name__ == "__main__":
     ilanlari_tara()

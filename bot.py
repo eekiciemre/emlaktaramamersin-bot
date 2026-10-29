@@ -1,81 +1,321 @@
+
+import os
+import re
+import imaplib
+import email
+import html
 import requests
+
+from email.header import decode_header
 from bs4 import BeautifulSoup
-import time
+from urllib.parse import urlparse
 
-TOKEN = "9222419466:AAF65zfqe89xnHDSMcxpGEV2nabmhPbz0e4"
-CHAT_ID = "8242316628"
+# ==================================================
+# AYARLAR: GitHub Secrets üzerinden alınır
+# ==================================================
 
-MIN_FIYAT = 3000000
-MAX_FIYAT = 5250000
+TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-    "Referer": "https://www.google.com/"
-}
+IMAP_HOST = os.environ.get("IMAP_HOST", "imap.gmail.com")
+IMAP_USER = os.environ["IMAP_USER"]
+IMAP_PASSWORD = os.environ["IMAP_PASSWORD"]
+IMAP_FOLDER = os.environ.get("IMAP_FOLDER", "INBOX")
 
-def telegram_mesaj_gonder(baslik, fiyat, kaynak, link):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    mesaj = (
-        f"🚨 **YENİ İLAN YAKALANDI ({kaynak})!** 🚨\n\n"
-        f"📌 **Başlık:** {baslik}\n"
-        f"💰 **Fiyat:** {fiyat:,} TL\n"
-        f"📍 **Konum:** Mersin / Mezitli\n\n"
-        f"🔗 [İlana Git ve İncele]({link})"
-    )
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": mesaj,
-        "parse_mode": "Markdown",
-        "disable_web_page_preview": True
-    }
-    try:
-        requests.post(url, data=payload, timeout=10)
-    except Exception as e:
-        print(f"Telegram gönderim hatası: {e}")
+MIN_FIYAT = 3_000_000
+MAX_FIYAT = 5_250_000
 
-def ilanlari_tara():
-    print("Mezitli ilanları taranıyor...")
-    
-    url = "https://www.sahibinden.com/emlak-konut-satilik/mersin-mezitli"
-    
-    try:
-        response = requests.get(url, headers=HEADERS, timeout=15)
-        print(f"Bağlantı Durum Kodu: {response.status_code}")
-        
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Sahibinden arama sonuçlarındaki ilan satırları
-            ilan_satirlari = soup.find_all('tr', {'class': 'searchResultsItem'})
-            print(f"Sayfada tespit edilen ilan satırı: {len(ilan_satirlari)}")
-            
-            for ilan in ilan_satirlari:
-                try:
-                    baslik_tag = ilan.find('a', {'class': 'classifiedTitle'})
-                    fiyat_tag = ilan.find('td', {'class': 'searchResultsPriceValue'})
-                    
-                    if baslik_tag and fiyat_tag:
-                        baslik = baslik_tag.text.strip()
-                        link = "https://www.sahibinden.com" + baslik_tag['href']
-                        
-                        # Fiyatı sayıya çevirme
-                        fiyat_metin = fiyat_tag.text.strip().replace(" TL", "").replace(".", "").replace(",", "")
-                        fiyat = int(fiyat_metin)
-                        
-                        # Bütçe aralığı kontrolü (3M - 5.25M) ve 2+1 / 3+1 kontrolü
-                        if MIN_FIYAT <= fiyat <= MAX_FIYAT:
-                            if "2+1" in baslik or "3+1" in baslik:
-                                print(f"Eşleşen ilan bulundu: {baslik} - {fiyat} TL")
-                                telegram_mesaj_gonder(baslik, fiyat, "Sahibinden", link)
-                except Exception as ex:
-                    print(f"İlan çözümlenirken hata: {ex}")
+# Yalnızca bu ilan platformlarının bağlantıları kabul edilir.
+ALLOWED_DOMAINS = (
+    "sahibinden.com",
+    "hepsiemlak.com",
+    "emlakjet.com",
+)
+
+# ==================================================
+# E-POSTA OKUMA
+# ==================================================
+
+def decode_text(value):
+    if not value:
+        return ""
+
+    result = []
+
+    for part, encoding in decode_header(value):
+        if isinstance(part, bytes):
+            result.append(
+                part.decode(encoding or "utf-8", errors="replace")
+            )
         else:
-            print("Siteye erişimde bot korumasına takıldı.")
-            
-    except Exception as e:
-        print(f"Hata oluştu: {e}")
+            result.append(part)
+
+    return "".join(result)
+
+
+def get_email_content(message):
+    plain_parts = []
+    html_parts = []
+
+    parts = message.walk() if message.is_multipart() else [message]
+
+    for part in parts:
+        if part.get_content_disposition() == "attachment":
+            continue
+
+        content_type = part.get_content_type()
+
+        if content_type not in ("text/plain", "text/html"):
+            continue
+
+        payload = part.get_payload(decode=True)
+        if not payload:
+            continue
+
+        charset = part.get_content_charset() or "utf-8"
+        content = payload.decode(charset, errors="replace")
+
+        if content_type == "text/plain":
+            plain_parts.append(content)
+        else:
+            html_parts.append(content)
+
+    if plain_parts:
+        return "\n".join(plain_parts)
+
+    if html_parts:
+        soup = BeautifulSoup("\n".join(html_parts), "html.parser")
+
+        for tag in soup(["script", "style"]):
+            tag.decompose()
+
+        return str(soup)
+
+    return ""
+
+
+# ==================================================
+# İLAN BİLGİLERİNİ AYIKLAMA
+# ==================================================
+
+def get_platform(url):
+    host = (urlparse(url).hostname or "").lower()
+    host = host.removeprefix("www.")
+
+    for domain in ALLOWED_DOMAINS:
+        if host == domain or host.endswith("." + domain):
+            return domain
+
+    return None
+
+
+def extract_listing(content, subject):
+    soup = BeautifulSoup(content, "html.parser")
+
+    # E-posta HTML ise gerçek bağlantıları bul.
+    links = []
+
+    for tag in soup.find_all("a", href=True):
+        url = html.unescape(tag["href"]).strip()
+        platform = get_platform(url)
+
+        if not platform:
+            continue
+
+        title = tag.get_text(" ", strip=True)
+
+        # İzleme ve yönlendirme URL'lerini otomatik çözmeye çalışmıyoruz.
+        # Doğrudan platform bağlantısı olmalı.
+        if platform not in urlparse(url).hostname.lower():
+            continue
+
+        if title and url not in [item[1] for item in links]:
+            links.append((title, url, platform))
+
+    # Düz metin e-postalarda da platform bağlantılarını bul.
+    if not links:
+        for url in re.findall(r'https?://[^\s<>"\']+', content):
+            url = html.unescape(url).rstrip(".,);]")
+            platform = get_platform(url)
+
+            if platform and platform in urlparse(url).hostname.lower():
+                links.append(("", url, platform))
+
+    if not links:
+        return []
+
+    text = soup.get_text(" ", strip=True)
+    text = re.sub(r"\s+", " ", text)
+
+    if not text:
+        text = re.sub(r"<[^>]+>", " ", content)
+        text = re.sub(r"\s+", " ", text)
+
+    combined = f"{subject} {text}"
+
+    # Fiyat: ör. 4.250.000 TL veya 4.250.000 ₺
+    price_matches = re.findall(
+        r'(\d[\d.]*(?:,\d{1,2})?)\s*(?:TL|₺)',
+        combined,
+        flags=re.IGNORECASE
+    )
+
+    fiyat = None
+
+    for value in price_matches:
+        normalized = value.replace(".", "").replace(",", ".")
+        try:
+            number = int(float(normalized))
+            if MIN_FIYAT <= number <= MAX_FIYAT:
+                fiyat = number
+                break
+        except ValueError:
+            continue
+
+    # Oda sayısı başlıkta veya e-posta metninde bulunmalı.
+    room_matches = re.findall(
+        r'(?<!\d)([23])\s*\+\s*1(?!\d)',
+        combined
+    )
+
+    if not fiyat or not room_matches:
+        return []
+
+    rooms = sorted(set(room_matches))
+
+    # E-posta başlığı veya bağlantı metninden ilan başlığını al.
+    results = []
+
+    for link_title, url, platform in links:
+        baslik = link_title or subject.strip()
+
+        # Konum bilgisi e-postada geçmiyorsa Mezitli olduğunu varsayma.
+        if "mezitli" not in combined.lower():
+            continue
+
+        results.append({
+            "title": baslik[:250],
+            "url": url,
+            "platform": platform,
+            "price": fiyat,
+            "rooms": rooms,
+        })
+
+    return results
+
+
+# ==================================================
+# TELEGRAM
+# ==================================================
+
+def send_telegram(listing):
+    room_text = " / ".join(f"{room}+1" for room in listing["rooms"])
+
+    message = (
+        f"🏠 YENİ İLAN BİLDİRİMİ\n\n"
+        f"📌 {listing['title']}\n"
+        f"📍 Mersin / Mezitli\n"
+        f"🛏 Oda: {room_text}\n"
+        f"💰 Fiyat: {listing['price']:,} TL\n"
+        f"🌐 Kaynak: {listing['platform']}\n\n"
+        f"🔗 {listing['url']}"
+    )
+
+    response = requests.post(
+        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+        json={
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": message,
+            "disable_web_page_preview": False,
+        },
+        timeout=20,
+    )
+
+    response.raise_for_status()
+
+    result = response.json()
+
+    if not result.get("ok"):
+        raise RuntimeError(result.get("description", "Telegram gönderim hatası"))
+
+
+# ==================================================
+# E-POSTALARI TARA
+# ==================================================
+
+def main():
+    print("Mezitli ilan bildirimi kontrolü başladı.")
+
+    mailbox = imaplib.IMAP4_SSL(IMAP_HOST)
+
+    try:
+        mailbox.login(IMAP_USER, IMAP_PASSWORD)
+
+        status, _ = mailbox.select(IMAP_FOLDER)
+
+        if status != "OK":
+            raise RuntimeError("E-posta klasörü açılamadı.")
+
+        status, data = mailbox.search(None, "UNSEEN")
+
+        if status != "OK":
+            raise RuntimeError("Okunmamış e-postalar alınamadı.")
+
+        message_ids = data[0].split()
+        print(f"Okunmamış e-posta sayısı: {len(message_ids)}")
+
+        for message_id in message_ids:
+            status, fetched = mailbox.fetch(
+                message_id,
+                "(BODY.PEEK[])"
+            )
+
+            if status != "OK":
+                print("E-posta okunamadı:", message_id)
+                continue
+
+            raw_email = next(
+                (item[1] for item in fetched if isinstance(item, tuple)),
+                None
+            )
+
+            if not raw_email:
+                continue
+
+            message = email.message_from_bytes(raw_email)
+            subject = decode_text(message.get("Subject", ""))
+            content = get_email_content(message)
+
+            print("İşleniyor:", subject[:120])
+
+            try:
+                listings = extract_listing(content, subject)
+
+                if not listings:
+                    print(
+                        "Eşleşme bulunamadı. "
+                        "E-posta okunmamış olarak bırakıldı."
+                    )
+                    continue
+
+                for listing in listings:
+                    send_telegram(listing)
+                    print("Telegram'a gönderildi:", listing["url"])
+
+                # Yalnızca başarılı gönderimden sonra okundu işaretle.
+                mailbox.store(message_id, "+FLAGS", "\\Seen")
+
+            except Exception as error:
+                print("E-posta işleme hatası:", error)
+
+    finally:
+        try:
+            mailbox.logout()
+        except Exception:
+            pass
+
+    print("Kontrol tamamlandı.")
+
 
 if __name__ == "__main__":
-    ilanlari_tara()
+    main()

@@ -18,7 +18,7 @@ HEADERS = {
 def telegram_mesaj_gonder(baslik, fiyat, kaynak, link):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     mesaj = (
-        f"🚨 **YENİ EMLAK İLANI ({kaynak})!** 🚨\n\n"
+        f"🚨 **YENİ MÜLK SAHİBİ İLANI ({kaynak})!** 🚨\n\n"
         f"📌 **Başlık:** {baslik}\n"
         f"💰 **Fiyat:** {fiyat}\n"
         f"📍 **Konum:** Mersin / Mezitli\n\n"
@@ -38,7 +38,6 @@ def telegram_mesaj_gonder(baslik, fiyat, kaynak, link):
 def ilanlari_tara():
     print("Mezitli genel taraması başlatıldı (Sahibinden, Hepsiemlak, Emlakjet)...")
     
-    # Taranacak platformlar ve arama linkleri
     platformlar = [
         ("Sahibinden", "https://www.sahibinden.com/emlak-konut-satilik/mersin-mezitli"),
         ("Hepsiemlak", "https://www.hepsiemlak.com/mersin-mezitli-satilik"),
@@ -54,8 +53,8 @@ def ilanlari_tara():
                 soup = BeautifulSoup(response.text, 'html.parser')
                 print(f"✅ {kaynak_adi} başarıyla tarandı.")
                 
-                # Örnek test bildirimi veya ilan yakalama mantığı (Platform bazlı yapı)
-                # Sistem artık her turda siteleri güncel olarak kontrol edecek.
+                # İleride her platformun kendi ilan kartı yapısına göre eşleşenler 
+                # doğrudan yukarıdaki telegram_mesaj_gonder fonksiyonu ile atılacak.
             else:
                 print(f"⚠️ {kaynak_adi} erişim kodu: {response.status_code}")
                 
@@ -63,8 +62,6 @@ def ilanlari_tara():
             print(f"❌ {kaynak_adi} hata: {e}")
         
         time.sleep(3)
-
-    telegram_mesaj_gonder("Sistem Durumu", "Tarama Tamamlandı", "Multi-Platform", "https://github.com")
 
 if __name__ == "__main__":
     ilanlari_tara()
